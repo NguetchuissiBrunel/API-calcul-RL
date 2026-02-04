@@ -17,7 +17,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # We use a specific version of numpy for SB3 compatibility
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir "numpy<2.0" && \
     pip install --no-cache-dir -r requirements.txt
 
 # Manually ensure fastapi and uvicorn are there (redundant but safe)

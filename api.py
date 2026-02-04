@@ -60,7 +60,10 @@ def get_latest_model():
     def extract_number(filename):
         import re
         nums = re.findall(r'\d+', filename)
-        return int(nums[0]) if nums else 0
+        val = int(nums[0]) if nums else 0
+        # Prioritize 'improved' if values are equal
+        bonus = 0.5 if "improved" in filename else 0
+        return val + bonus
 
     models.sort(key=extract_number)
     latest = models[-1]
