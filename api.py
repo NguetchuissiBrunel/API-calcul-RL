@@ -41,6 +41,7 @@ model = None
 
 def get_latest_model():
     models_dir = "models/PPO"
+    print(f"DEBUG: Current Working Directory: {os.getcwd()}")
     print(f"DEBUG: Checking directory {models_dir} (Absolute: {os.path.abspath(models_dir)})")
     
     if not os.path.exists(models_dir):
@@ -94,10 +95,9 @@ async def predict(request: PredictionRequest):
         # Try to load again just in case
         load_model()
         if not model:
-            # Fallback to simulation/heuristic if model is missing? 
-            # Or just return error. The plan said "expose model".
-            # Let's return error for now, or maybe a heuristic fallback.
-            raise HTTPException(status_code=503, detail="Model not loaded and no trained model found.")
+            print("WARNING: Model still not loaded. Using heuristic fallback.")
+            # We don't raise 503 anymore, we use a fallback to keep the service alive.
+            pass
 
     # 1. Map inputs to model observation
     # Model inputs: distance, road_type, traffic, rain, night, accident, luggage, wide_road
@@ -109,7 +109,9 @@ async def predict(request: PredictionRequest):
     # "bonne" -> 0 (Paved), "moyenne" -> 1 (Dirt), "mauvaise" -> 2 (Broken)
     # Frontend sends: "bonne", "moyenne", "mauvaise"
     road_map = {"bonne": 0, "moyenne": 1, "mauvaise": 2}
-    road_type = road_map.get(request.etat_route.lower(), 1) # default medium
+    # Use .strip() to handle spaces like " bonne"
+    road_type_str = request.etat_route.lower().strip()
+    road_type = road_map.get(road_type_str, 1) # default medium
     
     # Rain
     # Frontend sends "0", "0.5", "1" or similar strings?
@@ -172,8 +174,21 @@ async def predict(request: PredictionRequest):
     obs = np.array([distance, road_type, traffic, rain, is_night, accident, has_luggage, is_wide_road], dtype=np.float32)
     
     # Predict
-    action, _ = model.predict(obs, deterministic=True)
-    predicted_cost = float(action[0])
+    if model:
+        action, _ = model.predict(obs, deterministic=True)
+        predicted_cost = float(action[0])
+    else:
+        # HEURISTIC FALLBACK (based on simulation logic)
+        base_rate = 150 # CFA per km
+        cost = distance * base_rate
+        if road_type == 1: cost *= 1.2
+        if road_type == 2: cost *= 1.5
+        if traffic == 1: cost *= 1.3
+        if traffic == 2: cost *= 1.7
+        if is_night: cost *= 1.2
+        if has_luggage: cost += 500
+        if is_wide_road: cost *= 0.9
+        predicted_cost = max(500, cost) # Minimum fare 500
     
     # Range
     cost_min = int(predicted_cost * 0.9)
