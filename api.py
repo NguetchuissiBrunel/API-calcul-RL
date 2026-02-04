@@ -41,37 +41,46 @@ model = None
 
 def get_latest_model():
     models_dir = "models/PPO"
+    print(f"DEBUG: Checking directory {models_dir} (Absolute: {os.path.abspath(models_dir)})")
+    
     if not os.path.exists(models_dir):
+        print(f"DEBUG: Directory {models_dir} does NOT exist.")
         return None
-    models = [f for f in os.listdir(models_dir) if f.endswith('.zip')]
+    
+    files = os.listdir(models_dir)
+    print(f"DEBUG: Files in {models_dir}: {files}")
+    
+    models = [f for f in files if f.endswith('.zip')]
     if not models:
+        print(f"DEBUG: No .zip files found in {models_dir}")
         return None
     
     # Improved sorting: find the one with the highest numerical value, ignoring prefixes
     def extract_number(filename):
-        # Remove .zip and then extract only digits
         import re
         nums = re.findall(r'\d+', filename)
         return int(nums[0]) if nums else 0
 
     models.sort(key=extract_number)
-    return os.path.join(models_dir, models[-1])
+    latest = models[-1]
+    print(f"DEBUG: Latest model selected: {latest}")
+    return os.path.join(models_dir, latest)
 
 def load_model():
     global model
     model_path = get_latest_model()
     if model_path:
-        print(f"Loading model from {model_path}")
+        print(f"DEBUG: Attempting to load model from {model_path}")
         try:
-            # We need to instantiate the env to load the model properly (or just pass env=None if we don't need further training)
-            # But SB3 usually likes to know the env structure.
             env = TravelCostEnv() 
             model = PPO.load(model_path, env=env)
-            print("Model loaded successfully")
+            print("DEBUG: Model loaded successfully into memory.")
         except Exception as e:
-            print(f"Failed to load model: {e}")
+            print(f"DEBUG: Failed to load model: {e}")
+            import traceback
+            traceback.print_exc()
     else:
-        print("No model found. prediction will fail.")
+        print("DEBUG: get_latest_model() returned None. No model to load.")
 
 
 @app.get("/", include_in_schema=False)
