@@ -175,13 +175,21 @@ async def predict(request: PredictionRequest):
             
     # Construct Observation
     obs = np.array([distance, road_type, traffic, rain, is_night, accident, has_luggage, is_wide_road], dtype=np.float32)
+    print(f"DEBUG: Prediction Observation: {obs.tolist()}")
     
     # Predict
     if model:
-        action, _ = model.predict(obs, deterministic=True)
-        predicted_cost = float(action[0])
-    else:
+        try:
+            action, _ = model.predict(obs, deterministic=True)
+            print(f"DEBUG: Model Action: {action}")
+            predicted_cost = float(action[0])
+        except Exception as e:
+            print(f"DEBUG: Inference failed: {e}")
+            model = None # Trigger fallback on next line
+            
+    if not model:
         # HEURISTIC FALLBACK (based on simulation logic)
+        print("DEBUG: Using Heuristic Fallback")
         base_rate = 150 # CFA per km
         cost = distance * base_rate
         if road_type == 1: cost *= 1.2
@@ -192,6 +200,8 @@ async def predict(request: PredictionRequest):
         if has_luggage: cost += 500
         if is_wide_road: cost *= 0.9
         predicted_cost = max(500, cost) # Minimum fare 500
+    
+    print(f"DEBUG: Final Predicted Cost: {predicted_cost}")
     
     # Range
     cost_min = int(predicted_cost * 0.9)
