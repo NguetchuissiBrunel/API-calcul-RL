@@ -46,7 +46,15 @@ def get_latest_model():
     models = [f for f in os.listdir(models_dir) if f.endswith('.zip')]
     if not models:
         return None
-    models.sort(key=lambda x: int(x.replace('.zip', '')))
+    
+    # Improved sorting: find the one with the highest numerical value, ignoring prefixes
+    def extract_number(filename):
+        # Remove .zip and then extract only digits
+        import re
+        nums = re.findall(r'\d+', filename)
+        return int(nums[0]) if nums else 0
+
+    models.sort(key=extract_number)
     return os.path.join(models_dir, models[-1])
 
 def load_model():
@@ -170,7 +178,9 @@ async def predict(request: PredictionRequest):
 
 if __name__ == "__main__":
     try:
-        print("Starting Uvicorn server on http://127.0.0.1:8000")
-        uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
+        # Port is often provided by the environment in production (e.g., Render/Heroku)
+        port = int(os.environ.get("PORT", 8000))
+        print(f"Starting Uvicorn server on http://0.0.0.0:{port}")
+        uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
     except Exception as e:
         print(f"Server failed to start: {e}")
